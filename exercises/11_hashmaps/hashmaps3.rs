@@ -31,6 +31,19 @@ fn build_scores_table(results: &str) -> HashMap<&str, TeamScores> {
         // Keep in mind that goals scored by team 1 will be the number of goals
         // conceded by team 2. Similarly, goals scored by team 2 will be the
         // number of goals conceded by team 1.
+        let default_score = &TeamScores::default();
+        let team1_value = scores.get(team_1_name).unwrap_or(default_score);
+        let team2_value = scores.get(team_2_name).unwrap_or(default_score);
+        let updated_team1_value = TeamScores {
+            goals_scored: team1_value.goals_scored + team_1_score,
+            goals_conceded: team1_value.goals_conceded + team_2_score,
+        };
+        let updated_team2_value = TeamScores {
+            goals_scored: team2_value.goals_scored + team_2_score,
+            goals_conceded: team2_value.goals_conceded + team_1_score,
+        };
+        scores.insert(team_1_name, updated_team1_value);
+        scores.insert(team_2_name, updated_team2_value);
     }
 
     scores
@@ -54,9 +67,11 @@ England,Spain,1,0";
     fn build_scores() {
         let scores = build_scores_table(RESULTS);
 
-        assert!(["England", "France", "Germany", "Italy", "Poland", "Spain"]
-            .into_iter()
-            .all(|team_name| scores.contains_key(team_name)));
+        assert!(
+            ["England", "France", "Germany", "Italy", "Poland", "Spain"]
+                .into_iter()
+                .all(|team_name| scores.contains_key(team_name))
+        );
     }
 
     #[test]
