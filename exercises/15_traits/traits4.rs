@@ -11,7 +11,9 @@ impl Licensed for SomeSoftware {}
 impl Licensed for OtherSoftware {}
 
 // TODO: Fix the compiler error by only changing the signature of this function.
-fn compare_license_types(software1: ???, software2: ???) -> bool {
+// fn compare_license_types<T1: Licensed, T2: Licensed>(software1: T1, software2: T2) -> bool {
+// below also works. It seems named parameter types give additional possibilities like referencing the types in return type
+fn compare_license_types(software1: impl Licensed, software2: impl Licensed) -> bool {
     software1.licensing_info() == software2.licensing_info()
 }
 
