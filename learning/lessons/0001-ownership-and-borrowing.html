@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 1: Ownership and &amp;, the Borrow</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav class="crumbs"><a href="../MISSION.md">Mission</a> · Lesson 1 of 4 · <a href="../reference/ownership-cheatsheet.html">Reference sheet</a></nav>
+
+<p class="eyebrow">Lesson 1 — Ownership &amp; the borrow operator</p>
+<h1>Why <code>&amp;s</code> isn't a Java reference</h1>
+
+<p>In Java or Kotlin, every variable holding an object is a reference — a handle to something on the heap that a garbage collector cleans up whenever nothing points to it anymore. You never think about <em>who owns</em> an object; the GC figures that out for you, at runtime, by counting reachability.</p>
+
+<p>Rust has no garbage collector. Instead, every value has exactly <strong>one owner</strong> — one variable responsible for cleaning it up — decided entirely at compile time. When that owner goes out of scope, Rust inserts the cleanup code right there, with zero runtime tracking. This is the single idea everything else in this lesson (and lessons 2–4) builds on.</p>
+
+<h2>Ownership: one variable, one job</h2>
+
+<pre class="bad-code"><code>fn main() {
+    let s1 = String::from("hello");
+    let s2 = s1;             // ownership of the String MOVES to s2
+
+    println!("{s1}");        // ERROR: s1 no longer owns anything
+}</code></pre>
+
+<p>This is not a copy, and it's not two references to one object like Java's <code>s2 = s1</code> would be. <code>s1</code>'s ownership <strong>moved</strong> to <code>s2</code>. After the move, <code>s1</code> is deliberately unusable — the compiler statically rejects the next line. There is no shared mutable object here the way there would be in Java; there is exactly one <code>String</code>, and only one variable is allowed to be responsible for it at a time.</p>
+
+<div class="java-contrast">
+<div>
+<h4>Java / Kotlin</h4>
+<code>var s2 = s1;</code><br>
+Both variables now point at the same object. Both remain valid. No compiler tracking of who "owns" it — the GC decides when it dies, at runtime.
+</div>
+<div>
+<h4>Rust</h4>
+<code>let s2 = s1;</code><br>
+Ownership transfers to <code>s2</code>. <code>s1</code> is now invalid — enforced by the compiler, at compile time, for free at runtime.
+</div>
+</div>
+
+<h2>The problem: what if you just want to look?</h2>
+
+<p>If every function call moved ownership, you'd have to hand a value back out of every function just to keep using it afterward. That's what borrowing solves.</p>
+
+<pre class="good-code"><code>fn main() {
+    let s1 = String::from("hello");
+    let len = calculate_length(&amp;s1);   // borrow, don't move
+
+    println!("The length of '{s1}' is {len}.");  // s1 still valid
+}
+
+fn calculate_length(s: &amp;String) -&gt; usize {
+    s.len()
+}</code></pre>
+
+<p><code>&amp;s1</code> creates a <strong>shared reference</strong> — a borrow. <code>calculate_length</code> receives a pointer to <code>s1</code>'s data but does not own it, so nothing gets dropped when the borrow goes out of scope at the end of the function. Ownership never left <code>main</code>. This is what <code>&amp;</code> means everywhere in Rust: "I'm looking, I don't own this."</p>
+
+<div class="callout">
+<div class="label">The mental model swap</div>
+Stop reading <code>&amp;T</code> as "a reference to T" (which is what every Java variable already is). Read it as <strong>"a temporary, read-only loan of a value someone else owns."</strong> The loan has to end before or when the owner's scope ends — that's what lifetimes (lesson 4) pin down precisely.
+</div>
+
+<h2>Shared borrows can stack</h2>
+
+<p>Unlike the mutable case (next lesson), you can have as many <code>&amp;T</code> borrows of the same value as you want at once — because none of them can change it, there's nothing to race:</p>
+
+<pre class="good-code"><code>let s = String::from("hello");
+let r1 = &amp;s;
+let r2 = &amp;s;
+println!("{r1} and {r2}");   // fine — both just reading</code></pre>
+
+<h2>Try it: rustlings</h2>
+<p class="exercise-link">Open <code>exercises/06_move_semantics/move_semantics2.rs</code> in this repo. The fix is exactly this lesson: change a parameter from taking ownership to borrowing with <code>&amp;</code>.</p>
+
+<h2>Check yourself</h2>
+<div class="quiz" data-correct="b" data-feedback-correct="Right — ownership moved to s2, so s1 is dead." data-feedback-wrong="s1 moved into s2 on the line above — it's no longer valid to use.">
+<p class="quiz-q">let s1 = String::from("hi"); let s2 = s1; println!("{s1}"); — what happens?</p>
+<button class="quiz-opt" data-choice="a">Prints hi, s1 still valid afterward</button>
+<button class="quiz-opt" data-choice="b">Fails to compile, s1 was moved away</button>
+<button class="quiz-opt" data-choice="c">Prints empty string, s1 was cleared</button>
+<p class="quiz-feedback" hidden></p>
+</div>
+
+<div class="quiz" data-correct="a" data-feedback-correct="Right — &s just borrows; ownership stays with s." data-feedback-wrong="&s creates a borrow, not a move — s keeps ownership.">
+<p class="quiz-q">fn f(s: &amp;String) {} ... f(&amp;s); println!("{s}"); — what happens?</p>
+<button class="quiz-opt" data-choice="a">Prints fine, s still owns its value</button>
+<button class="quiz-opt" data-choice="b">Fails to compile, s was moved away</button>
+<button class="quiz-opt" data-choice="c">Prints fine, but s is now empty</button>
+<p class="quiz-feedback" hidden></p>
+</div>
+
+<p class="source">Primary source for this lesson: <a href="https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html">The Rust Book, ch4.2 "References and Borrowing"</a> — read it in full if you want the surrounding detail this lesson trims out.</p>
+
+<div class="ask-your-teacher">Something here not click? Ask your teacher (this coding agent) — that's what these sessions are for. Don't just push through confusion to the next lesson.</div>
+
+<div class="next-lesson">Next → <a href="0002-mutable-borrows-and-the-borrow-checker.html">Lesson 2: <code>&amp;mut</code> and the borrow checker</a></div>
+
+<footer class="lesson-footer">Rust Ownership/Borrowing/Lifetimes · Lesson 1/4 · learning/lessons/0001-ownership-and-borrowing.html</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

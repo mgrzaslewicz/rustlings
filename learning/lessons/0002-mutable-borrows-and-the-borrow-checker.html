@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 2: &amp;mut and the Borrow Checker</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav class="crumbs"><a href="../MISSION.md">Mission</a> · <a href="0001-ownership-and-borrowing.html">← Lesson 1</a> · Lesson 2 of 4 · <a href="../reference/ownership-cheatsheet.html">Reference sheet</a></nav>
+
+<p class="eyebrow">Lesson 2 — <code>&amp;mut</code> and the borrow checker</p>
+<h1>Exclusive access: <code>&amp;mut</code></h1>
+
+<p>Lesson 1 covered <code>&amp;T</code>: a read-only loan, and you can hand out as many as you like. This lesson covers <code>&amp;mut T</code>: a loan that can also write — and Rust only ever allows <strong>one of those to exist at a time</strong>, with zero <code>&amp;T</code> alongside it.</p>
+
+<h2>The rule</h2>
+
+<div class="callout">
+<div class="label">Aliasing XOR mutability</div>
+At any given point, for a given value, you may have <strong>either</strong> any number of <code>&amp;T</code> <strong>or</strong> exactly one <code>&amp;mut T</code> — never both kinds at once.
+</div>
+
+<p>This has no equivalent in Java or Kotlin. Any Java reference can always be used to mutate the object it points to, and any number of references can alias the same object while some of them write to it — that's exactly how data races and "who mutated this out from under me" bugs happen in concurrent Java code. Rust's compiler refuses to compile code where that could happen, full stop, before the program ever runs.</p>
+
+<h2>Getting one</h2>
+
+<pre class="good-code"><code>fn main() {
+    let mut s = String::from("hello");
+    change(&amp;mut s);
+    println!("{s}");   // "hello, world"
+}
+
+fn change(some_string: &amp;mut String) {
+    some_string.push_str(", world");
+}</code></pre>
+
+<p>Two things had to line up: <code>s</code> itself had to be declared <code>mut</code> (you can't mutably borrow something you couldn't mutate directly), and the parameter type is <code>&amp;mut String</code>, not <code>&amp;String</code>.</p>
+
+<h2>What the compiler actually rejects</h2>
+
+<pre class="bad-code"><code>let mut s = String::from("hello");
+let r1 = &amp;s;       // shared borrow #1 — fine so far
+let r2 = &amp;s;       // shared borrow #2 — still fine, both read-only
+let r3 = &amp;mut s;   // ERROR: can't borrow mutably while r1/r2 are alive
+println!("{r1}, {r2}, {r3}");</code></pre>
+
+<p>The error isn't arbitrary pedantry — it's preventing a real bug class. If <code>r3</code> were allowed to mutate <code>s</code> while <code>r1</code>/<code>r2</code> still expect to read the old value, that's a data race in spirit even in single-threaded code (and a literal one across threads). The borrow checker's job is to make that class of bug a compile error instead of a runtime surprise.</p>
+
+<pre class="good-code"><code>let mut s = String::from("hello");
+let r1 = &amp;s;
+let r2 = &amp;s;
+println!("{r1}, {r2}");   // r1, r2 not used again after this line
+
+let r3 = &amp;mut s;          // fine — r1, r2's borrows already ended
+println!("{r3}");</code></pre>
+
+<p>This compiles. A borrow's lifespan ends at its <strong>last use</strong>, not at the end of the enclosing block — the compiler tracks that precisely (this is the "non-lexical lifetimes" feature, if you want the term for later searching).</p>
+
+<div class="java-contrast">
+<div>
+<h4>Java / Kotlin</h4>
+Any reference can mutate. Multiple threads mutating the same object concurrently is a runtime bug you find via race conditions, flaky tests, or production incidents.
+</div>
+<div>
+<h4>Rust</h4>
+Only one mutable path to a value can exist at a time, checked at compile time. The equivalent bug is a compile error, not a 3am page.
+</div>
+</div>
+
+<h2>Try it: rustlings</h2>
+<p class="exercise-link">Open <code>exercises/06_move_semantics/move_semantics3.rs</code> and <code>move_semantics4.rs</code> — both are fixed by choosing correctly between owned, <code>&amp;</code>, and <code>&amp;mut</code> parameters.</p>
+
+<h2>Check yourself</h2>
+<div class="quiz" data-correct="c" data-feedback-correct="Right — one &mut plus any &T at the same time is exactly what's banned." data-feedback-wrong="Re-read the rule: &mut can't coexist with any other borrow, mutable or not.">
+<p class="quiz-q">let r1 = &amp;mut s; let r2 = &amp;s; both used below — does this compile?</p>
+<button class="quiz-opt" data-choice="a">Yes, one write plus one read is allowed</button>
+<button class="quiz-opt" data-choice="b">Yes, because r2 only reads</button>
+<button class="quiz-opt" data-choice="c">No, &amp;mut can't coexist with any other borrow</button>
+<p class="quiz-feedback" hidden></p>
+</div>
+
+<div class="quiz" data-correct="b" data-feedback-correct="Right — a borrow ends at its last use, so r1 is long dead by then." data-feedback-wrong="r1's last use was the println! above — its borrow already ended by non-lexical lifetimes.">
+<p class="quiz-q">let r1 = &amp;s; println!("{r1}"); let r2 = &amp;mut s; — does this compile?</p>
+<button class="quiz-opt" data-choice="a">No, r1 is still borrowed</button>
+<button class="quiz-opt" data-choice="b">Yes, r1's borrow already ended</button>
+<button class="quiz-opt" data-choice="c">No, s was never marked mut</button>
+<p class="quiz-feedback" hidden></p>
+</div>
+
+<p class="source">Primary source for this lesson: <a href="https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html">The Rust Book, ch4.2 "References and Borrowing"</a>.</p>
+
+<div class="ask-your-teacher">If a borrow-checker error from your own rustlings attempt doesn't match anything above, paste it to your teacher directly rather than guessing-and-recompiling.</div>
+
+<div class="next-lesson">Next → <a href="0003-dereferencing-with-star.html">Lesson 3: the <code>*</code> operator</a></div>
+
+<footer class="lesson-footer">Rust Ownership/Borrowing/Lifetimes · Lesson 2/4 · learning/lessons/0002-mutable-borrows-and-the-borrow-checker.html</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

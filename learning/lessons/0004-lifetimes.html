@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 4: Lifetimes and 'a</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav class="crumbs"><a href="../MISSION.md">Mission</a> · <a href="0003-dereferencing-with-star.html">← Lesson 3</a> · Lesson 4 of 4 · <a href="../reference/ownership-cheatsheet.html">Reference sheet</a></nav>
+
+<p class="eyebrow">Lesson 4 — lifetimes</p>
+<h1><code>'a</code> is a claim, not a lifespan</h1>
+
+<p>Lessons 1–3 gave you the tools: owned values, <code>&amp;</code>, <code>&amp;mut</code>, <code>*</code>. This lesson is about the annotation the compiler sometimes demands on top of those: <code>'a</code>. The single most important thing to unlearn first:</p>
+
+<div class="callout">
+<div class="label">The misconception to drop</div>
+<code>'a</code> does <strong>not</strong> make anything live longer, and it isn't a runtime value — it's erased before compilation finishes. It's a name you give to a relationship between references so the borrow checker can verify it. You're not controlling lifetimes; you're describing a constraint that already exists in your code, so the compiler can check it instead of guessing.
+</div>
+
+<h2>Why the compiler needs help</h2>
+
+<pre class="bad-code"><code>fn longest(x: &amp;str, y: &amp;str) -&gt; &amp;str {
+    if x.len() &gt; y.len() { x } else { y }
+}</code></pre>
+
+<p>This won't compile. Not because anything is actually wrong at runtime — but because the compiler has to decide, just from the signature, how long the returned reference is allowed to live. Does it borrow from <code>x</code>? From <code>y</code>? It can't tell without looking inside the function body, and Rust deliberately checks function signatures without needing to read the caller's or callee's implementation. So you tell it:</p>
+
+<pre class="good-code"><code>fn longest&lt;'a&gt;(x: &amp;'a str, y: &amp;'a str) -&gt; &amp;'a str {
+    if x.len() &gt; y.len() { x } else { y }
+}</code></pre>
+
+<p>Read this as: <em>"there's some lifetime <code>'a</code>. Both <code>x</code> and <code>y</code> are valid for at least <code>'a</code>. Whatever I return will also be valid for at least <code>'a</code>."</code></em> Since both parameters share the same <code>'a</code>, the compiler now knows the returned reference can't outlive the <strong>shorter-lived</strong> of the two inputs — which is exactly true, since the function might return either one.</p>
+
+<h2>What this catches at the call site</h2>
+
+<pre class="bad-code"><code>let string1 = String::from("long string is long");
+let result;
+{
+    let string2 = String::from("xyz");
+    result = longest(&amp;string1, &amp;string2);
+}   // string2 dropped here
+println!("The longest string is '{result}'");   // ERROR</code></pre>
+
+<p><code>result</code> might hold a reference into <code>string2</code>, which is dead by the time <code>println!</code> runs. The <code>'a</code> annotation is exactly what lets the compiler catch this — without it having to inline and analyze <code>longest</code>'s body at every call site. This is the direct cousin of a Java <code>NullPointerException</code> or a C dangling pointer, except it's a compile error instead of something that ships.</p>
+
+<h2>Lifetime elision: why you don't always see <code>'a</code></h2>
+
+<p>Most functions with references don't need explicit lifetimes — the compiler applies three mechanical rules first, and only asks you to annotate when those rules leave it ambiguous:</p>
+
+<ol>
+<li>Every reference parameter gets its own inferred lifetime.</li>
+<li>If there's exactly <strong>one</strong> input reference lifetime, it's assigned to every output reference.</li>
+<li>If one parameter is <code>&amp;self</code> or <code>&amp;mut self</code>, its lifetime is assigned to every output.</li>
+</ol>
+
+<p><code>longest</code> needed an explicit <code>'a</code> because it has <strong>two</strong> input reference lifetimes and rule 2 doesn't apply — the compiler genuinely can't pick one over the other. A function like <code>fn first_word(s: &amp;str) -&gt; &amp;str</code> compiles with zero annotations because rule 2 handles it.</p>
+
+<h2>Lifetimes on structs</h2>
+
+<pre class="good-code"><code>struct Excerpt&lt;'a&gt; {
+    part: &amp;'a str,
+}</code></pre>
+
+<p>Same idea, applied to a type instead of a function: an <code>Excerpt</code> can't outlive the string its <code>part</code> field borrows from. The compiler will refuse to let you construct one that would dangle.</p>
+
+<div class="java-contrast">
+<div>
+<h4>Java / Kotlin</h4>
+No equivalent needed — the GC keeps anything reachable alive, so a reference is never left dangling. The cost is paid at runtime, continuously, by the collector.
+</div>
+<div>
+<h4>Rust</h4>
+No GC, so the compiler must prove statically that no reference outlives its data. <code>'a</code> is the vocabulary it needs from you to do that proof. Zero runtime cost once it compiles.
+</div>
+</div>
+
+<h2>Try it: rustlings</h2>
+<p class="exercise-link">Open <code>exercises/16_lifetimes/lifetimes1.rs</code> (fix the signature) then <code>lifetimes2.rs</code> (the fix is moving one line — think about which variable would otherwise be dropped too early, using the dangling-reference example above).</p>
+
+<h2>Check yourself</h2>
+<div class="quiz" data-correct="c" data-feedback-correct="Right — it's erased at compile time; it only exists to let the compiler check a constraint." data-feedback-wrong="'a has no runtime existence — it's a compile-time-only annotation, fully erased.">
+<p class="quiz-q">What does the 'a in &amp;'a str actually do at runtime?</p>
+<button class="quiz-opt" data-choice="a">Extends the value's life until 'a ends</button>
+<button class="quiz-opt" data-choice="b">Tracks a reference count like Rc</button>
+<button class="quiz-opt" data-choice="c">Nothing — it's erased before runtime</button>
+<p class="quiz-feedback" hidden></p>
+</div>
+
+<div class="quiz" data-correct="a" data-feedback-correct="Right — two input reference lifetimes with no self and no return means elision rule 2 doesn't resolve it." data-feedback-wrong="With two ambiguous input reference lifetimes and no &self, elision can't pick one, so an explicit 'a is required.">
+<p class="quiz-q">fn pick(x: &amp;str, y: &amp;str) -&gt; &amp;str — does this need an explicit 'a?</p>
+<button class="quiz-opt" data-choice="a">Yes, two inputs makes it ambiguous</button>
+<button class="quiz-opt" data-choice="b">No, elision rule 2 always applies</button>
+<button class="quiz-opt" data-choice="c">No, only structs ever need 'a</button>
+<p class="quiz-feedback" hidden></p>
+</div>
+
+<p class="source">Primary source for this lesson: <a href="https://doc.rust-lang.org/book/ch10-03-lifetime-syntax.html">The Rust Book, ch10.3 "Validating References with Lifetimes"</a>.</p>
+
+<div class="ask-your-teacher">Lifetimes are the topic people re-ask about most. If lifetimes2.rs doesn't click after reading the dangling-reference example above, ask your teacher to walk the exact scope with you — don't just move lines until it compiles.</div>
+
+<div class="next-lesson">You've completed the core loop. Once <code>exercises/06_move_semantics/*.rs</code> and <code>exercises/16_lifetimes/*.rs</code> are done unaided, come back and ask for the next session — smart pointers (<code>Box</code>/<code>Rc</code>/<code>RefCell</code>) is the natural next mission per <a href="../MISSION.md">MISSION.md</a>.</div>
+
+<footer class="lesson-footer">Rust Ownership/Borrowing/Lifetimes · Lesson 4/4 · learning/lessons/0004-lifetimes.html</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

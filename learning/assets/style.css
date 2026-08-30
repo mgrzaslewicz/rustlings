@@ -1,0 +1,254 @@
+/* Shared stylesheet for the Rust Ownership/Borrowing/Lifetimes lessons. */
+
+:root {
+  --ink: #1a1a1a;
+  --paper: #fdfcf9;
+  --rule: #d8d3c4;
+  --accent: #a6402a;
+  --accent-soft: #f4e6de;
+  --code-bg: #f4f2ea;
+  --muted: #6b6558;
+  --good: #2e6b3e;
+  --bad: #a6402a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e8e4d8;
+    --paper: #1b1a17;
+    --rule: #3a362c;
+    --accent: #e08a6e;
+    --accent-soft: #2a2420;
+    --code-bg: #24221c;
+    --muted: #9a9484;
+    --good: #5fae74;
+    --bad: #e08a6e;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { background: var(--paper); }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  font-size: 19px;
+  line-height: 1.6;
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 6rem;
+}
+
+nav.crumbs {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 2rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+nav.crumbs a { color: var(--muted); }
+nav.crumbs a:hover { color: var(--accent); }
+
+.eyebrow {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  font-weight: 600;
+  margin: 0 0 0.4rem;
+}
+
+h1 {
+  font-size: 2rem;
+  line-height: 1.15;
+  margin: 0 0 1.75rem;
+}
+
+h2 {
+  font-size: 1.3rem;
+  margin: 2.5rem 0 0.9rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--rule);
+}
+
+h3 { font-size: 1.05rem; margin: 1.5rem 0 0.5rem; }
+
+p { margin: 0 0 1rem; }
+
+a { color: var(--accent); text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 2px; }
+a:hover { text-decoration-color: var(--accent); }
+
+code, pre, kbd {
+  font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.86em;
+}
+
+code {
+  background: var(--code-bg);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+}
+
+pre {
+  background: var(--code-bg);
+  border-left: 3px solid var(--accent);
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  border-radius: 0 4px 4px 0;
+  margin: 1.2rem 0;
+  line-height: 1.5;
+}
+
+pre code { background: none; padding: 0; }
+
+.bad-code { border-left-color: var(--bad); }
+.bad-code::before {
+  content: "✗ does not compile";
+  display: block;
+  font-family: -apple-system, sans-serif;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--bad);
+  margin-bottom: 0.6rem;
+}
+
+.good-code { border-left-color: var(--good); }
+.good-code::before {
+  content: "✓ compiles";
+  display: block;
+  font-family: -apple-system, sans-serif;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--good);
+  margin-bottom: 0.6rem;
+}
+
+.callout {
+  background: var(--accent-soft);
+  border-radius: 6px;
+  padding: 1rem 1.2rem;
+  margin: 1.4rem 0;
+}
+
+.callout .label {
+  font-family: -apple-system, sans-serif;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+}
+
+.java-contrast {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 1.4rem 0;
+}
+
+@media (max-width: 560px) {
+  .java-contrast { grid-template-columns: 1fr; }
+}
+
+.java-contrast > div {
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 0.9rem 1rem;
+}
+
+.java-contrast h4 {
+  margin: 0 0 0.5rem;
+  font-family: -apple-system, sans-serif;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.exercise-link {
+  display: inline-block;
+  margin: 0.3rem 0 1rem;
+  font-family: -apple-system, sans-serif;
+  font-size: 0.85rem;
+}
+
+.exercise-link code { font-size: 0.95em; }
+
+.next-lesson {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--rule);
+  font-family: -apple-system, sans-serif;
+  font-size: 0.95rem;
+}
+
+.ask-your-teacher {
+  margin-top: 2.5rem;
+  padding: 1rem 1.2rem;
+  border: 1px dashed var(--rule);
+  border-radius: 6px;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.source {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+footer.lesson-footer {
+  margin-top: 3rem;
+  font-family: -apple-system, sans-serif;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.quiz {
+  margin: 1.6rem 0;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+}
+
+.quiz-q {
+  font-weight: 600;
+  margin-bottom: 0.8rem;
+}
+
+.quiz-opt {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.85rem;
+  background: var(--code-bg);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+}
+
+.quiz-opt:hover:not(:disabled) { border-color: var(--accent); }
+.quiz-opt:disabled { cursor: default; }
+.quiz-opt.quiz-correct { border-color: var(--good); background: color-mix(in srgb, var(--good) 15%, var(--code-bg)); }
+.quiz-opt.quiz-wrong { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 15%, var(--code-bg)); }
+
+.quiz-feedback {
+  font-family: -apple-system, sans-serif;
+  font-size: 0.85rem;
+  margin: 0.6rem 0 0;
+}
+.quiz-feedback-good { color: var(--good); }
+.quiz-feedback-bad { color: var(--bad); }

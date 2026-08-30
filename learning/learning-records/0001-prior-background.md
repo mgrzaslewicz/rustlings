@@ -1,0 +1,3 @@
+# Prior background: experienced JVM developer, new to non-GC ownership
+
+User has years of Java and Kotlin experience. Disclosed this at session start. In Java/Kotlin, all object variables are reference handles managed by a garbage collector — there is no language-level concept of "one owner," no compiler-enforced aliasing rules, and no equivalent of a move. This is a *false-friend* risk: Rust's `&` looks like a Java reference syntactically but obeys entirely different rules (single-owner, borrow-checked, no GC). Lessons should explicitly contrast against JVM reference semantics rather than assuming a blank slate, and should not over-explain general programming concepts (functions, generics, stack/heap at a high level) the user already knows from Java/Kotlin.

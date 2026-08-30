@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 3: The * Dereference Operator</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav class="crumbs"><a href="../MISSION.md">Mission</a> · <a href="0002-mutable-borrows-and-the-borrow-checker.html">← Lesson 2</a> · Lesson 3 of 4 · <a href="../reference/ownership-cheatsheet.html">Reference sheet</a></nav>
+
+<p class="eyebrow">Lesson 3 — the <code>*</code> operator</p>
+<h1><code>*</code>: "the value this points to"</h1>
+
+<p><code>&amp;</code> creates a reference. <code>*</code> is its inverse: given a reference, it gets you back to the value it points to. Java and Kotlin never make you write this — every reference auto-dereferences everywhere (<code>obj.method()</code> just works). Rust auto-dereferences too, in most places — which is exactly why beginners get confused about when <code>*</code> is actually required.</p>
+
+<h2>Where you almost never need it</h2>
+
+<pre class="good-code"><code>fn calculate_length(s: &amp;String) -&gt; usize {
+    s.len()          // no * needed — method calls auto-deref
+}</code></pre>
+
+<p>Calling a method or field access through a reference auto-dereferences, same as Java. This covers the large majority of your code — most rustlings exercises you've already solved with <code>&amp;</code> alone never needed a <code>*</code>.</p>
+
+<h2>Where you do need it: mutating through <code>&amp;mut</code></h2>
+
+<p>The canonical case, straight from the Rust Book:</p>
+
+<pre class="good-code"><code>fn main() {
+    let mut v = vec![100, 32, 57];
+    for i in &amp;mut v {
+        *i += 50;
+    }
+}</code></pre>
+
+<p><code>i</code> here has type <code>&amp;mut i32</code> — a mutable reference to one <code>i32</code> inside the vector. <code>i += 50</code> would try to add 50 <em>to the reference itself</em>, which isn't what you want and isn't even legal. <code>*i += 50</code> dereferences first — "go to the <code>i32</code> this points at, then add 50 to it." The Book calls this out directly: <em>"we have to use the <code>*</code> dereference operator to get to the value in <code>i</code> before we can use the <code>+=</code> operator."</em></p>
+
+<div class="callout">
+<div class="label">The rule of thumb</div>
+Method calls and field access auto-deref for you. The moment you're using an operator directly on a reference — <code>+=</code>, <code>==</code>, assignment — you usually need <code>*</code> to reach the pointee first.
+</div>
+
+<h2>Reading, not just writing</h2>
+
+<pre class="good-code"><code>let x = 5;
+let r = &amp;x;
+
+assert_eq!(5, *r);     // compare the pointee to 5
+assert_eq!(5, r);      // ERROR: can't compare i32 to &i32 directly</code></pre>
+
+<p><code>r</code> has type <code>&amp;i32</code>, not <code>i32</code>. Comparing it directly to a plain <code>5</code> is a type mismatch — you have to dereference first to get an <code>i32</code> on both sides.</p>
+
+<div class="java-contrast">
+<div>
+<h4>Java / Kotlin</h4>
+No dereference operator exists because you can't hold "the reference itself" as a distinct typed thing you operate on — <code>obj</code> and "what obj points to" aren't syntactically different.
+</div>
+<div>
+<h4>Rust</h4>
+<code>r: &amp;i32</code> and <code>*r: i32</code> are genuinely different types. The type system forces you to say which one you mean.
+</div>
+</div>
+
+<h2>Try it: rustlings</h2>
+<p class="exercise-link">Open <code>exercises/06_move_semantics/move_semantics5.rs</code>. <code>get_char</code> there takes <code>&amp;String</code> and calls methods on it with no <code>*</code> needed (auto-deref) — a good check that you can tell when <code>*</code> is and isn't required.</p>
+
+<h2>Check yourself</h2>
+<div class="quiz" data-correct="a" data-feedback-correct="Right — s.len() auto-derefs through the &String, no * needed." data-feedback-wrong="Method calls auto-deref through a reference — this compiles as-is.">
+<p class="quiz-q">fn f(s: &amp;String) -&gt; usize { s.len() } — does this need a * before s.len()?</p>
+<button class="quiz-opt" data-choice="a">No, method calls auto-dereference</button>
+<button class="quiz-opt" data-choice="b">Yes, s is a reference so it needs *s.len()</button>
+<button class="quiz-opt" data-choice="c">Yes, but only for String specifically</button>
+<p class="quiz-feedback" hidden></p>
+</div>
+
+<div class="quiz" data-correct="b" data-feedback-correct="Right — the += operator needs the actual i32, not the &mut i32 reference." data-feedback-wrong="i is &mut i32 here; += operates on the pointee, so * is required.">
+<p class="quiz-q">for i in &amp;mut v { i += 1; } — does this compile as written?</p>
+<button class="quiz-opt" data-choice="a">Yes, += auto-derefs like method calls do</button>
+<button class="quiz-opt" data-choice="b">No, needs *i += 1 instead</button>
+<button class="quiz-opt" data-choice="c">Yes, but only because v is a Vec</button>
+<p class="quiz-feedback" hidden></p>
+</div>
+
+<p class="source">Primary source for this lesson: <a href="https://doc.rust-lang.org/book/ch08-01-vectors.html">The Rust Book, ch8.1, Listing 8-8</a>.</p>
+
+<div class="ask-your-teacher">If you hit a "cannot move out of" or "expected i32, found &amp;i32" error that this lesson doesn't explain, bring the exact error to your teacher.</div>
+
+<div class="next-lesson">Next → <a href="0004-lifetimes.html">Lesson 4: lifetimes and <code>'a</code></a></div>
+
+<footer class="lesson-footer">Rust Ownership/Borrowing/Lifetimes · Lesson 3/4 · learning/lessons/0003-dereferencing-with-star.html</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

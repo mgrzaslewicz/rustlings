@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Reference: Ownership, &amp; and * Cheatsheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  body { max-width: 760px; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.8rem; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-family: -apple-system, sans-serif; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  td code { white-space: nowrap; }
+  @media print {
+    nav.crumbs, .ask-your-teacher { display: none; }
+    body { font-size: 12pt; max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+<nav class="crumbs"><a href="../MISSION.md">Mission</a> · <a href="../lessons/0001-ownership-and-borrowing.html">Lesson 1</a> · <a href="../lessons/0002-mutable-borrows-and-the-borrow-checker.html">Lesson 2</a> · <a href="../lessons/0003-dereferencing-with-star.html">Lesson 3</a> · <a href="../lessons/0004-lifetimes.html">Lesson 4</a></nav>
+
+<p class="eyebrow">Reference — print this one</p>
+<h1>Ownership, <code>&amp;</code>, <code>*</code> &amp; Lifetimes Cheatsheet</h1>
+
+<p>The compressed version of lessons 1–4. Come back here instead of re-reading the lessons.</p>
+
+<h2>The four operators</h2>
+<table>
+<tr><th>Syntax</th><th>Means</th><th>You may…</th><th>NOT the same as Java/Kotlin</th></tr>
+<tr>
+  <td><code>T</code></td>
+  <td>owned value</td>
+  <td>move it, mutate it if <code>mut</code>, drop it at end of scope</td>
+  <td>a Java local var never "owns" the heap object — GC does</td>
+</tr>
+<tr>
+  <td><code>&amp;T</code></td>
+  <td>shared / immutable borrow</td>
+  <td>read; have unlimited others of these at once</td>
+  <td>a plain Java reference can always be mutated through — <code>&amp;T</code> can't</td>
+</tr>
+<tr>
+  <td><code>&amp;mut T</code></td>
+  <td>exclusive / mutable borrow</td>
+  <td>read and write; only ONE may exist, and zero <code>&amp;T</code> at the same time</td>
+  <td>Java/Kotlin has no concept of an exclusive reference at all</td>
+</tr>
+<tr>
+  <td><code>*r</code></td>
+  <td>dereference — "the value <code>r</code> points to"</td>
+  <td>read or (if <code>r: &amp;mut T</code>) write the pointee directly</td>
+  <td>Java auto-dereferences everywhere; Rust makes it explicit with <code>*</code></td>
+</tr>
+</table>
+
+<h2>The one rule that governs <code>&amp;</code> / <code>&amp;mut</code></h2>
+<div class="callout">
+<div class="label">Aliasing XOR mutability</div>
+At any point in the code, for a given value you may have <strong>either</strong> any number of <code>&amp;T</code> <strong>or</strong> exactly one <code>&amp;mut T</code> — never both at once.
+</div>
+<p class="source">Source: <a href="https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html">The Rust Book, ch4.2</a></p>
+
+<h2>When do you write <code>*</code>?</h2>
+<table>
+<tr><th>Situation</th><th>Example</th></tr>
+<tr><td>Mutating through a <code>&amp;mut</code></td><td><code>*counter += 1;</code></td></tr>
+<tr><td>Reading a non-<code>Copy</code> value out of a reference (rare, usually via a method instead)</td><td><code>let n = *some_box;</code></td></tr>
+<tr><td>Comparing a reference's pointee to a literal</td><td><code>if *r == 5 { }</code></td></tr>
+<tr><td>Most of the time — don't write it</td><td><code>r.len()</code> auto-derefs; no <code>*</code> needed</td></tr>
+</table>
+
+<h2>Lifetime syntax</h2>
+<table>
+<tr><th>Written</th><th>Read as</th></tr>
+<tr><td><code>&amp;i32</code></td><td>"a reference to an <code>i32</code>, lifetime inferred"</td></tr>
+<tr><td><code>&amp;'a i32</code></td><td>"a reference to an <code>i32</code>, valid for at least <code>'a</code>"</td></tr>
+<tr><td><code>fn f&lt;'a&gt;(x: &amp;'a str) -&gt; &amp;'a str</code></td><td>"the returned reference lives at most as long as <code>x</code>"</td></tr>
+<tr><td><code>struct S&lt;'a&gt; { part: &amp;'a str }</code></td><td>"an <code>S</code> can't outlive the string its <code>part</code> field borrows"</td></tr>
+</table>
+<p><strong>Key idea:</strong> a lifetime annotation never makes a value live longer. It's a claim you make that the compiler checks — "these two things are related, and the return value can't outlive its input(s)."</p>
+<p class="source">Source: <a href="https://doc.rust-lang.org/book/ch10-03-lifetime-syntax.html">The Rust Book, ch10.3</a></p>
+
+<h2>Glossary</h2>
+<p><strong>Owner</strong>: the one variable responsible for dropping a value. Every value has exactly one at a time.</p>
+<p><strong>Move</strong>: transferring ownership. The old variable becomes invalid; the compiler enforces this at compile time (no runtime cost).</p>
+<p><strong>Borrow</strong>: creating a reference (<code>&amp;</code> or <code>&amp;mut</code>) to a value you don't own, for a limited scope.</p>
+<p><strong>Borrow checker</strong>: the compiler pass that enforces aliasing XOR mutability and that no reference outlives its owner.</p>
+<p><strong>Dangling reference</strong>: a reference to memory that's already been freed. Impossible to produce in safe Rust — the borrow checker rejects it at compile time.</p>
+<p><strong>Dereference</strong>: following a reference to reach the value it points to, spelled <code>*r</code>.</p>
+<p><strong>Lifetime</strong>: the span of code for which a reference is guaranteed valid. Written <code>'a</code>. Not a runtime value — it's erased before the binary is built.</p>
+
+<div class="ask-your-teacher">Confused about how something here maps to a rustlings exercise? Ask your teacher (this coding agent) directly — that's what it's for.</div>
+
+</body>
+</html>
