@@ -57,6 +57,19 @@ println!("{}", b2); // OK: b2 owns the heap data</code></pre>
 
 <p>Rust defaults to stack allocation because it's faster. Use <code>Box</code> when you specifically need heap allocation:</p>
 
+<div class="callout">
+  <div class="label">Why is Stack Faster?</div>
+  <p><strong>Stack allocation</strong> is just moving the stack pointer — one CPU instruction. The memory is already there, contiguous, and cache-friendly.</p>
+  <p><strong>Heap allocation</strong> requires the allocator to:</p>
+  <ul style="margin: 0.5rem 0 0 1.2rem; padding: 0;">
+    <li>Search for a free block large enough (bookkeeping overhead)</li>
+    <li>Update metadata to mark the block as used</li>
+    <li>Handle fragmentation (small gaps between allocations)</li>
+    <li>Return a pointer to memory that might be scattered across RAM (cache-unfriendly)</li>
+  </ul>
+  <p style="margin-top: 0.5rem;">In Java, you don't choose — objects always go on the heap and the GC cleans up later. In Rust, you pay for heap allocation only when you explicitly ask for it (<code>Box</code>, <code>Vec</code>, <code>String</code>, etc.).</p>
+</div>
+
 <h3>1. Recursive Types (Most Common)</h3>
 
 <p>The compiler needs to know the size of every type at compile time. Recursive types have infinite size without indirection:</p>
