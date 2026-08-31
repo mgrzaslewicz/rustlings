@@ -1,0 +1,189 @@
+<link rel="stylesheet" href="../assets/style.css">
+<title>Box: Heap Allocation with Ownership</title>
+
+<nav class="crumbs">
+  <a href="../MISSION.md">Mission</a> → Lesson 5
+</nav>
+
+<p class="eyebrow">Smart Pointers · Part 1</p>
+<h1>Box: Heap Allocation with Ownership</h1>
+
+<p>In Java, every object lives on the heap and you use <code>new</code> to create it. In Rust, values live on the stack by default. <code>Box&lt;T&gt;</code> is how you explicitly request heap allocation while keeping Rust's single-ownership rules.</p>
+
+<div class="java-contrast">
+  <div>
+    <h4>Java</h4>
+    <pre><code>// Always heap-allocated
+String s = new String("hello");
+List&lt;Integer&gt; list = new ArrayList&lt;&gt;();
+
+// GC manages lifetime
+// Reference can be copied freely</code></pre>
+  </div>
+  <div>
+    <h4>Rust</h4>
+    <pre><code>// Stack by default
+let s = String::from("hello");
+let list = vec![1, 2, 3];
+
+// Explicit heap allocation
+let boxed_s = Box::new(s);
+// boxed_s owns the heap value
+// moves like any owned value</code></pre>
+  </div>
+</div>
+
+<h2>What is Box?</h2>
+
+<p><code>Box&lt;T&gt;</code> is a smart pointer that allocates <code>T</code> on the heap. The <code>Box</code> itself lives on the stack and contains a pointer to the heap data. When the <code>Box</code> goes out of scope, the heap data is deallocated.</p>
+
+<pre><code>let b = Box::new(5);
+// Stack: b (pointer) → Heap: 5
+
+println!("{}", b); // prints "5"
+// Dereferencing happens automatically</code></pre>
+
+<p>Key difference from Java: <code>Box&lt;T&gt;</code> has <strong>single ownership</strong>. When you move a <code>Box</code>, you move the ownership of the heap data. No copying the pointer.</p>
+
+<pre class="bad-code"><code>let b1 = Box::new(5);
+let b2 = b1;
+println!("{}", b1); // error: b1 was moved</code></pre>
+
+<pre class="good-code"><code>let b1 = Box::new(5);
+let b2 = b1; // b1 moved to b2
+println!("{}", b2); // OK: b2 owns the heap data</code></pre>
+
+<h2>When to Use Box</h2>
+
+<p>Rust defaults to stack allocation because it's faster. Use <code>Box</code> when you specifically need heap allocation:</p>
+
+<h3>1. Recursive Types (Most Common)</h3>
+
+<p>The compiler needs to know the size of every type at compile time. Recursive types have infinite size without indirection:</p>
+
+<pre class="bad-code"><code>enum List {
+    Cons(i32, List), // infinitely sized!
+    Nil,
+}</code></pre>
+
+<p>A <code>Box</code> has known size (one pointer), breaking the infinite recursion:</p>
+
+<pre class="good-code"><code>enum List {
+    Cons(i32, Box&lt;List&gt;), // fixed size: i32 + pointer
+    Nil,
+}
+
+let list = List::Cons(1,
+    Box::new(List::Cons(2,
+        Box::new(List::Nil))));
+// represents: 1 → 2 → Nil</code></pre>
+
+<div class="callout">
+  <div class="label">Java Parallel</div>
+  In Java, <code>class Node { int val; Node next; }</code> works because all object references are pointers anyway. In Rust, you must be explicit: <code>Box&lt;Node&gt;</code> makes <code>next</code> a pointer instead of trying to embed the entire next node inline.
+</div>
+
+<h3>2. Trait Objects</h3>
+
+<p>When you want to store a value whose exact type is unknown at compile time:</p>
+
+<pre><code>trait Drawable {
+    fn draw(&self);
+}
+
+let shapes: Vec&lt;Box&lt;dyn Drawable&gt;&gt; = vec![
+    Box::new(Circle { radius: 5 }),
+    Box::new(Square { side: 10 }),
+];
+// Like List&lt;Drawable&gt; in Java, but ownership is clear</code></pre>
+
+<h3>3. Large Values</h3>
+
+<p>Moving large stack values can be expensive. <code>Box</code> moves just the pointer:</p>
+
+<pre><code>struct HugeData([u8; 1_000_000]);
+
+let big = HugeData([0; 1_000_000]); // 1MB on stack
+let moved = big; // copies 1MB
+
+let boxed = Box::new(HugeData([0; 1_000_000])); // 1MB on heap
+let moved_box = boxed; // copies 8 bytes (pointer)</code></pre>
+
+<h2>Box vs &amp;</h2>
+
+<p>When should you use <code>Box&lt;T&gt;</code> vs <code>&amp;T</code>?</p>
+
+<ul>
+  <li><strong><code>&amp;T</code></strong>: Borrowing an existing value. No ownership transfer. Cheapest option.</li>
+  <li><strong><code>Box&lt;T&gt;</code></strong>: Creating a new heap-allocated value you own. Use when stack won't work (recursive types) or when you need to transfer ownership of heap data.</li>
+</ul>
+
+<pre><code>fn use_reference(s: &String) {
+    // Borrows s, doesn't own it
+    println!("{}", s);
+} // s still valid in caller
+
+fn take_ownership(s: Box&lt;String&gt;) {
+    // Takes ownership of heap-allocated String
+    println!("{}", s);
+} // String is dropped here</code></pre>
+
+<h2>Quiz: Check Your Understanding</h2>
+
+<div class="quiz">
+  <div class="quiz-q">What happens when you move a <code>Box&lt;T&gt;</code> in Rust?</div>
+  <button class="quiz-opt" data-correct="false">The heap data is copied to a new location on the heap</button>
+  <button class="quiz-opt" data-correct="true">Only the pointer is moved, heap data stays in the same place</button>
+  <button class="quiz-opt" data-correct="false">The heap data is moved to the stack for better performance</button>
+  <button class="quiz-opt" data-correct="false">Both the pointer and heap data are copied to a new location</button>
+  <div class="quiz-feedback"></div>
+</div>
+
+<div class="quiz">
+  <div class="quiz-q">Which use case requires <code>Box</code> because the alternative won't compile?</div>
+  <button class="quiz-opt" data-correct="false">Storing a large array to optimize performance during moves</button>
+  <button class="quiz-opt" data-correct="true">Defining a recursive enum where a variant contains itself</button>
+  <button class="quiz-opt" data-correct="false">Returning a value from a function to avoid copying overhead</button>
+  <button class="quiz-opt" data-correct="false">Sharing ownership of a value between multiple variables concurrently</button>
+  <div class="quiz-feedback"></div>
+</div>
+
+<script>
+document.querySelectorAll('.quiz').forEach(quiz => {
+  const btns = quiz.querySelectorAll('.quiz-opt');
+  const feedback = quiz.querySelector('.quiz-feedback');
+  btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const correct = btn.dataset.correct === 'true';
+      btns.forEach(b => b.disabled = true);
+      btn.classList.add(correct ? 'quiz-correct' : 'quiz-wrong');
+      if (correct) {
+        feedback.textContent = 'Correct!';
+        feedback.className = 'quiz-feedback quiz-feedback-good';
+      } else {
+        const rightBtn = Array.from(btns).find(b => b.dataset.correct === 'true');
+        rightBtn.classList.add('quiz-correct');
+        feedback.textContent = 'Not quite. The correct answer is highlighted above.';
+        feedback.className = 'quiz-feedback quiz-feedback-bad';
+      }
+    });
+  });
+});
+</script>
+
+<h2>Practice Exercise</h2>
+
+<p class="exercise-link">
+  → <code>exercises/19_smart_pointers/box1.rs</code><br>
+  Fix the recursive <code>List</code> enum by adding <code>Box</code> in the right place, then implement the two creation functions.
+</p>
+
+<div class="ask-your-teacher">
+  <strong>Stuck or confused?</strong> Ask me followup questions. I'm your teacher and can clarify anything that's unclear.
+</div>
+
+<footer class="lesson-footer">
+  <p class="source">Primary source: <a href="https://doc.rust-lang.org/book/ch15-01-box.html">The Rust Book — ch15.1 "Using Box to Point to Data on the Heap"</a></p>
+  <p>Next: <code>Rc&lt;T&gt;</code> for shared ownership (lesson 6, coming soon)</p>
+  <p><a href="0001-ownership-and-borrowing.html">← Lesson 1</a> · <a href="0002-mutable-borrows-and-the-borrow-checker.html">Lesson 2</a> · <a href="0003-dereferencing-with-star.html">Lesson 3</a> · <a href="0004-lifetimes.html">Lesson 4</a></p>
+</footer>
