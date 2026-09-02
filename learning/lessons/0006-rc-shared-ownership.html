@@ -1,0 +1,220 @@
+<link rel="stylesheet" href="../assets/style.css">
+<title>Rc: Shared Ownership via Reference Counting</title>
+
+<nav class="crumbs">
+  <a href="../MISSION.md">Mission</a> → Lesson 6
+</nav>
+
+<p class="eyebrow">Smart Pointers · Part 2</p>
+<h1>Rc: Shared Ownership via Reference Counting</h1>
+
+<p><code>Box&lt;T&gt;</code> gives you heap allocation with <strong>single ownership</strong>. But what if multiple parts of your program need to own the same data? <code>Rc&lt;T&gt;</code> (Reference Counted) enables <strong>shared ownership</strong> by counting how many owners exist and dropping the data when the count reaches zero.</p>
+
+<div class="java-contrast">
+  <div>
+    <h4>Java</h4>
+    <pre><code>// Multiple references, one object
+List&lt;String&gt; list = new ArrayList&lt;&gt;();
+List&lt;String&gt; alias1 = list;
+List&lt;String&gt; alias2 = list;
+
+// GC tracks references automatically
+// Object dies when no references remain</code></pre>
+  </div>
+  <div>
+    <h4>Rust</h4>
+    <pre><code>// Single owner by default
+let list = vec![String::from("a")];
+let alias1 = list; // list moved
+// let alias2 = list; // error!
+
+// Rc for multiple owners
+let list = Rc::new(vec![...]);
+let alias1 = Rc::clone(&list);
+let alias2 = Rc::clone(&list);
+// Data lives until all Rc's drop</code></pre>
+  </div>
+</div>
+
+<h2>Why is Rc Needed?</h2>
+
+<p>Rust's ownership model enforces <strong>single ownership</strong>: every value has exactly one owner, and when that owner goes out of scope, the value is dropped. This prevents use-after-free bugs at compile time.</p>
+
+<p>But some data structures need <strong>multiple ownership</strong>. Classic example: a graph where multiple nodes point to the same node.</p>
+
+<pre class="bad-code"><code>struct Node {
+    value: i32,
+    next: Box&lt;Node&gt;,
+}
+
+// Each Node owns the next one
+// Can't have two nodes pointing to the same next node!</code></pre>
+
+<p>With <code>Rc&lt;T&gt;</code>, multiple nodes can share ownership of the same next node:</p>
+
+<pre class="good-code"><code>use std::rc::Rc;
+
+struct Node {
+    value: i32,
+    next: Option&lt;Rc&lt;Node&gt;&gt;,
+}
+
+let shared_node = Rc::new(Node { value: 5, next: None });
+let node1 = Node { value: 1, next: Some(Rc::clone(&shared_node)) };
+let node2 = Node { value: 2, next: Some(Rc::clone(&shared_node)) };
+// Both node1 and node2 own shared_node
+// shared_node drops when both node1 and node2 drop</code></pre>
+
+<div class="callout">
+  <div class="label">Why Not Just Use &?</div>
+  <p>A reference <code>&T</code> borrows data but doesn't own it. The borrower can't outlive the owner. With <code>Rc&lt;T&gt;</code>, there's no single owner — the data lives as long as <em>any</em> <code>Rc</code> pointing to it still exists.</p>
+  <p>Use <code>&T</code> when the lifetime relationship is obvious at compile time. Use <code>Rc&lt;T&gt;</code> when ownership needs to be dynamic — determined at runtime by how many owners remain.</p>
+</div>
+
+<h2>How Rc Works: Reference Counting</h2>
+
+<p><code>Rc&lt;T&gt;</code> maintains a count of how many <code>Rc</code> pointers to the same data exist. When you clone an <code>Rc</code>, the count increments. When an <code>Rc</code> drops, the count decrements. When the count reaches zero, the data is deallocated.</p>
+
+<pre><code>use std::rc::Rc;
+
+let a = Rc::new(5);
+println!("count: {}", Rc::strong_count(&a)); // 1
+
+let b = Rc::clone(&a);
+println!("count: {}", Rc::strong_count(&a)); // 2
+
+{
+    let c = Rc::clone(&a);
+    println!("count: {}", Rc::strong_count(&a)); // 3
+} // c drops here, count decrements to 2
+
+println!("count: {}", Rc::strong_count(&a)); // 2
+// When a and b drop, count hits 0 and data is freed</code></pre>
+
+<div class="callout">
+  <div class="label">Rc::clone vs .clone()</div>
+  <p><code>Rc::clone(&a)</code> is <strong>cheap</strong> — it increments the count and copies the pointer (8 bytes). It does NOT clone the underlying data.</p>
+  <p><code>a.clone()</code> would work but is misleading — in Rust, <code>.clone()</code> usually means "deep copy". Use <code>Rc::clone(&a)</code> to make it explicit you're only bumping the count.</p>
+</div>
+
+<h2>Similarity to Java's Memory Model</h2>
+
+<p>Java's garbage collector tracks object reachability. When no references point to an object, the GC eventually reclaims it. <code>Rc&lt;T&gt;</code> does something similar, but <strong>at compile time + runtime instead of GC pauses</strong>.</p>
+
+<table class="comparison">
+  <thead>
+    <tr><th></th><th>Java GC</th><th>Rust Rc&lt;T&gt;</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Reference tracking</strong></td>
+      <td>GC scans roots + traces reachability periodically</td>
+      <td>Ref count incremented/decremented as Rc's clone/drop</td>
+    </tr>
+    <tr>
+      <td><strong>When is memory freed?</strong></td>
+      <td>When GC runs (non-deterministic timing)</td>
+      <td>Immediately when last Rc drops (deterministic)</td>
+    </tr>
+    <tr>
+      <td><strong>Overhead</strong></td>
+      <td>GC pause time + memory overhead for metadata</td>
+      <td>Increment/decrement operations + count storage (one usize per Rc)</td>
+    </tr>
+    <tr>
+      <td><strong>Handles cycles?</strong></td>
+      <td>Yes (GC can break cycles via tracing)</td>
+      <td>No (Rc cycle leaks memory — need Weak&lt;T&gt;)</td>
+    </tr>
+    <tr>
+      <td><strong>Thread safety</strong></td>
+      <td>Yes (JVM handles it)</td>
+      <td>No (Rc is single-threaded; use Arc for threads)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Key insight: In Java, <strong>every object reference is like an invisible Rc</strong>. The GC tracks when the "reference count" (reachability) hits zero. In Rust, references (<code>&T</code>) are compile-time-checked borrows, and <code>Rc&lt;T&gt;</code> is the explicit opt-in for Java-like shared ownership.</p>
+
+<h2>Rc vs Box: When to Use Each</h2>
+
+<p>Both <code>Box&lt;T&gt;</code> and <code>Rc&lt;T&gt;</code> allocate on the heap. The difference is ownership semantics:</p>
+
+<ul>
+  <li><strong><code>Box&lt;T&gt;</code></strong>: Single owner. Use when one part of your code owns the data and you need heap allocation (recursive types, trait objects, large values).</li>
+  <li><strong><code>Rc&lt;T&gt;</code></strong>: Multiple owners. Use when multiple parts of your code need to share ownership of the same data, and it's unclear at compile time which part will drop last.</li>
+</ul>
+
+<pre><code>// Box: single owner
+let unique = Box::new(vec![1, 2, 3]);
+// let copy = unique; // moves unique, single ownership
+
+// Rc: multiple owners
+let shared = Rc::new(vec![1, 2, 3]);
+let copy1 = Rc::clone(&shared);
+let copy2 = Rc::clone(&shared);
+// All three point to the same data</code></pre>
+
+<div class="callout">
+  <div class="label">Memory Layout</div>
+  <p><strong>Box&lt;T&gt;</strong>: <code>[stack: pointer] → [heap: T]</code></p>
+  <p><strong>Rc&lt;T&gt;</strong>: <code>[stack: pointer] → [heap: ref_count + T]</code></p>
+  <p>An <code>Rc</code> stores the reference count alongside the data on the heap. Multiple <code>Rc</code> pointers point to the same heap allocation.</p>
+</div>
+
+<h2>Limitation: Immutability by Default</h2>
+
+<p><code>Rc&lt;T&gt;</code> gives you shared ownership, but the data is <strong>immutable</strong> by default. You can't get a <code>&mut T</code> from an <code>Rc&lt;T&gt;</code> because multiple owners might exist.</p>
+
+<pre class="bad-code"><code>let shared = Rc::new(vec![1, 2, 3]);
+shared.push(4); // error: cannot borrow as mutable</code></pre>
+
+<p>To mutate shared data, combine <code>Rc&lt;T&gt;</code> with <code>RefCell&lt;T&gt;</code> (interior mutability). We'll cover that in the next lesson.</p>
+
+<h2>Quiz: Check Your Understanding</h2>
+
+<div class="quiz">
+  <div class="quiz-q">What happens when you call <code>Rc::clone(&data)</code>?</div>
+  <button class="quiz-opt" data-correct="false">The heap data is deep-copied to a new heap location</button>
+  <button class="quiz-opt" data-correct="true">Reference count increments and pointer is copied</button>
+  <button class="quiz-opt" data-correct="false">The heap data is moved to the new Rc and count stays same</button>
+  <button class="quiz-opt" data-correct="false">A new heap allocation is created with the same data and new count</button>
+  <div class="quiz-feedback"></div>
+</div>
+
+<div class="quiz">
+  <div class="quiz-q">When is the data inside an <code>Rc&lt;T&gt;</code> deallocated?</div>
+  <button class="quiz-opt" data-correct="false">When the first Rc pointing to it drops</button>
+  <button class="quiz-opt" data-correct="true">When the last Rc pointing to it drops</button>
+  <button class="quiz-opt" data-correct="false">When the garbage collector runs during the next pause</button>
+  <button class="quiz-opt" data-correct="false">When the program explicitly calls a deallocation function</button>
+  <div class="quiz-feedback"></div>
+</div>
+
+<div class="quiz">
+  <div class="quiz-q">Which scenario requires <code>Rc&lt;T&gt;</code> instead of <code>Box&lt;T&gt;</code>?</div>
+  <button class="quiz-opt" data-correct="false">Allocating a large struct on the heap for better performance</button>
+  <button class="quiz-opt" data-correct="true">Multiple graph nodes need to point to the same shared node</button>
+  <button class="quiz-opt" data-correct="false">Defining a recursive enum where a variant contains itself</button>
+  <button class="quiz-opt" data-correct="false">Storing a trait object when the concrete type is unknown</button>
+  <div class="quiz-feedback"></div>
+</div>
+
+<script src="../assets/quiz.js"></script>
+
+<h2>Practice Exercise</h2>
+
+<p class="exercise-link">
+  → <code>exercises/19_smart_pointers/rc1.rs</code><br>
+  Build a shared list using <code>Rc</code> where multiple sublists share the same tail.
+</p>
+
+<div class="ask-your-teacher">
+  <strong>Stuck or confused?</strong> Ask me followup questions. I'm your teacher and can clarify anything that's unclear.
+</div>
+
+<footer class="lesson-footer">
+  <p class="source">Primary source: <a href="https://doc.rust-lang.org/book/ch15-04-rc.html">The Rust Book — ch15.4 "Rc, the Reference Counted Smart Pointer"</a></p>
+  <p>Next: <code>RefCell&lt;T&gt;</code> for interior mutability (lesson 7, coming soon)</p>
+  <p><a href="0005-box-heap-allocation.html">← Lesson 5: Box</a> · <a href="0001-ownership-and-borrowing.html">Lesson 1</a></p>
+</footer>
