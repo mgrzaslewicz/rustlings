@@ -5,6 +5,7 @@
 // more about it in the documentation:
 // https://doc.rust-lang.org/std/str/trait.FromStr.html
 
+use crate::ParsePersonError::{BadLen, NoName, ParseInt};
 use std::num::ParseIntError;
 use std::str::FromStr;
 
@@ -41,7 +42,24 @@ enum ParsePersonError {
 impl FromStr for Person {
     type Err = ParsePersonError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {}
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let values: Vec<&str> = s.split(",").collect();
+        if values.len() != 2 {
+            return Err(BadLen);
+        }
+        let name: &str = values[0];
+        let age_str: &str = values[1];
+        if name.is_empty() {
+            return Err(NoName);
+        }
+        match age_str.parse() {
+            Ok(age) => Ok(Person {
+                name: name.to_string(),
+                age,
+            }),
+            Err(parse_int_err) => Err(ParseInt(parse_int_err)),
+        }
+    }
 }
 
 fn main() {
@@ -52,7 +70,6 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ParsePersonError::*;
 
     #[test]
     fn empty_input() {
